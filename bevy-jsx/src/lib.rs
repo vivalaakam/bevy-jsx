@@ -152,9 +152,11 @@ impl<S: Spawnable, F: FnOnce(&mut bevy::prelude::ChildSpawnerCommands) + Send + 
     }
 }
 
-/// Wrapper that inserts a marker component after spawning the inner element.
+/// Wrapper that inserts a marker / bundle after spawning the inner element.
 ///
-/// Produced by `element!` when the root element has an `id: Marker` prop.
+/// Produced by `element!` when the root element has an `id: …` prop.
+/// `id` accepts any expression that implements [`Bundle`] — a unit marker
+/// type (`GoldText`) or a constructed component (`LobbyActionTrigger(…)`).
 pub struct WithMarker<S, M> {
     pub inner: S,
     pub marker: M,
@@ -188,7 +190,7 @@ impl<S: Spawnable, M: bevy::prelude::Bundle> Spawnable for WithMarker<S, M> {
 #[macro_export]
 macro_rules! element {
     // ── With children + id + props ───────────────────────────────────────
-    ($component:ident ( id : $marker:path, $($prop_name:ident : $prop_val:expr),* $(,)? ) { $($children:tt)* }) => {{
+    ($component:ident ( id : $marker:expr, $($prop_name:ident : $prop_val:expr),* $(,)? ) { $($children:tt)* }) => {{
         let mut _jsx_props = <$component as $crate::__JsxComponent>::Props::default();
         $(_jsx_props.$prop_name($prop_val);)*
         let _jsx_bundle = <$component as $crate::__JsxComponent>::build(_jsx_props);
@@ -200,7 +202,7 @@ macro_rules! element {
         }
     }};
     // ── With children + id only ──────────────────────────────────────────
-    ($component:ident ( id : $marker:path ) { $($children:tt)* }) => {{
+    ($component:ident ( id : $marker:expr ) { $($children:tt)* }) => {{
         let _jsx_props = <$component as $crate::__JsxComponent>::Props::default();
         let _jsx_bundle = <$component as $crate::__JsxComponent>::build(_jsx_props);
         $crate::WithChildren {
@@ -211,14 +213,14 @@ macro_rules! element {
         }
     }};
     // ── Self-closing with id + props ─────────────────────────────────────
-    ($component:ident ( id : $marker:path, $($prop_name:ident : $prop_val:expr),* $(,)? )) => {{
+    ($component:ident ( id : $marker:expr, $($prop_name:ident : $prop_val:expr),* $(,)? )) => {{
         let mut _jsx_props = <$component as $crate::__JsxComponent>::Props::default();
         $(_jsx_props.$prop_name($prop_val);)*
         let _jsx_bundle = <$component as $crate::__JsxComponent>::build(_jsx_props);
         $crate::WithMarker { inner: _jsx_bundle, marker: $marker }
     }};
     // ── Self-closing with id only ────────────────────────────────────────
-    ($component:ident ( id : $marker:path )) => {{
+    ($component:ident ( id : $marker:expr )) => {{
         let _jsx_props = <$component as $crate::__JsxComponent>::Props::default();
         let _jsx_bundle = <$component as $crate::__JsxComponent>::build(_jsx_props);
         $crate::WithMarker { inner: _jsx_bundle, marker: $marker }
@@ -297,7 +299,7 @@ macro_rules! __spawn_children {
     };
 
     // ── Child with braces + id + props: Name(id: Marker, props...) { ... } ──
-    ($parent:ident $component:ident ( id : $marker:path, $($prop_name:ident : $prop_val:expr),* $(,)? ) { $($inner:tt)* } $($rest:tt)*) => {
+    ($parent:ident $component:ident ( id : $marker:expr, $($prop_name:ident : $prop_val:expr),* $(,)? ) { $($inner:tt)* } $($rest:tt)*) => {
         {
             let mut _jsx_props = <$component as $crate::__JsxComponent>::Props::default();
             $(_jsx_props.$prop_name($prop_val);)*
@@ -312,7 +314,7 @@ macro_rules! __spawn_children {
     };
 
     // ── Child with braces + id only: Name(id: Marker) { ... } ─────
-    ($parent:ident $component:ident ( id : $marker:path ) { $($inner:tt)* } $($rest:tt)*) => {
+    ($parent:ident $component:ident ( id : $marker:expr ) { $($inner:tt)* } $($rest:tt)*) => {
         {
             let _jsx_props = <$component as $crate::__JsxComponent>::Props::default();
             let _jsx_output = <$component as $crate::__JsxComponent>::build(_jsx_props);
@@ -348,7 +350,7 @@ macro_rules! __spawn_children {
     };
 
     // ── Self-closing with id + props, followed by something ───────
-    ($parent:ident $component:ident ( id : $marker:path, $($prop_name:ident : $prop_val:expr),* $(,)? ) $next:tt $($rest:tt)*) => {
+    ($parent:ident $component:ident ( id : $marker:expr, $($prop_name:ident : $prop_val:expr),* $(,)? ) $next:tt $($rest:tt)*) => {
         {
             let mut _jsx_props = <$component as $crate::__JsxComponent>::Props::default();
             $(_jsx_props.$prop_name($prop_val);)*
@@ -359,7 +361,7 @@ macro_rules! __spawn_children {
     };
 
     // ── Self-closing with id + props: Name(id: Marker, props...) ─────
-    ($parent:ident $component:ident ( id : $marker:path, $($prop_name:ident : $prop_val:expr),* $(,)? )) => {
+    ($parent:ident $component:ident ( id : $marker:expr, $($prop_name:ident : $prop_val:expr),* $(,)? )) => {
         {
             let mut _jsx_props = <$component as $crate::__JsxComponent>::Props::default();
             $(_jsx_props.$prop_name($prop_val);)*
@@ -369,7 +371,7 @@ macro_rules! __spawn_children {
     };
 
     // ── Self-closing with id only, followed by something ──────────
-    ($parent:ident $component:ident ( id : $marker:path ) $next:tt $($rest:tt)*) => {
+    ($parent:ident $component:ident ( id : $marker:expr ) $next:tt $($rest:tt)*) => {
         {
             let _jsx_output = $crate::element! { $component };
             $crate::Spawnable::spawn_into(_jsx_output, $parent).insert($marker);
@@ -378,7 +380,7 @@ macro_rules! __spawn_children {
     };
 
     // ── Self-closing with id only: Name(id: Marker) ───────────────
-    ($parent:ident $component:ident ( id : $marker:path )) => {
+    ($parent:ident $component:ident ( id : $marker:expr )) => {
         {
             let _jsx_output = $crate::element! { $component };
             $crate::Spawnable::spawn_into(_jsx_output, $parent).insert($marker);
