@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = "0.19.0-rc.2"
+bevy = "0.19.0"
 bevy-jsx-macro = { version = "0.1.0", path = "../bevy-jsx-macro" }
